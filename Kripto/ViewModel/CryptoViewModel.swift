@@ -7,3 +7,32 @@
 //
 
 import Foundation
+
+struct CryptoListViewModel {
+    
+    let cryptoCurrencyList : [kriptoParaBirimi]
+    
+   func numberOfRowInSection() -> Int {
+        return self.cryptoCurrencyList.count
+    }
+ 
+    func cryptoIndex(_ index : Int) -> CryptoViewModel {
+        let crypto = self.cryptoCurrencyList[index]
+        return CryptoViewModel(cryptoCurrency: crypto)
+    }
+    
+}
+
+struct CryptoViewModel {
+    
+    let cryptoCurrency : kriptoParaBirimi
+    
+    var name : String {
+        
+        return self.cryptoCurrency.currency
+    }
+    
+    var price : String {
+        return self.cryptoCurrency.price
+    }
+}

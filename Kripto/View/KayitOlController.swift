@@ -8,10 +8,19 @@
 
 import UIKit
 import Firebase
+import FirebaseFirestore
+import JGProgressHUD
+import SDWebImage
 
 class KayitOlController: UIViewController {
 
-    
+    let imageView: UIImageView = {
+        let img = UIImageView(frame: .zero)
+        img.image = UIImage(named: "arkaplan")
+        img.contentMode = .scaleToFill
+        return img
+    }()
+
     let btnFotografEkle : UIButton = {
        
         let btn = UIButton(type: .system)
@@ -31,7 +40,7 @@ class KayitOlController: UIViewController {
        
         let txt = UITextField()
         txt.placeholder = "Email Adresinizi Giriniz."
-        txt.backgroundColor = UIColor(white: 0, alpha: 0.05)
+        txt.backgroundColor = .white
         txt.borderStyle = .roundedRect
         txt.font = UIFont.systemFont(ofSize: 15)
         txt.addTarget(self, action: #selector(veriDegisimi), for: .editingChanged)
@@ -59,7 +68,7 @@ class KayitOlController: UIViewController {
         
         let txt = UITextField()
         txt.placeholder = "Kullanıcı Adınızı Giriniz."
-        txt.backgroundColor = UIColor(white: 0, alpha: 0.05)
+        txt.backgroundColor = .white
         txt.borderStyle = .roundedRect
         txt.font = UIFont.systemFont(ofSize: 15)
         txt.addTarget(self, action: #selector(veriDegisimi), for: .editingChanged)
@@ -70,7 +79,7 @@ class KayitOlController: UIViewController {
         let txt = UITextField()
         txt.placeholder = "Parolanızı giriniz."
         txt.isSecureTextEntry = true
-        txt.backgroundColor = UIColor(white: 0, alpha: 0.05)
+        txt.backgroundColor = .white
         txt.borderStyle = .roundedRect
         txt.font = UIFont.systemFont(ofSize: 15)
         txt.addTarget(self, action: #selector(veriDegisimi), for: .editingChanged)
@@ -96,23 +105,109 @@ class KayitOlController: UIViewController {
         guard let kullaniciAdi = txtKullaniciAdi.text else{return}
         guard let parola = txtParola.text else{return}
         
+        let hud = JGProgressHUD(style: .light)
+        hud.textLabel.text = "Kaydınız Gerçekleşiyor"
+        hud.show(in: self.view)
+        
         Auth.auth().createUser(withEmail: emailAdresi, password: parola) { (sonuc, hata) in
             if let hata = hata {
                 print("Hata meydana geldi :",hata)
+                hud.dismiss(animated: true)
+
                 return
             }
-            print("kullanici basarıyla gercekleşti",sonuc?.user.uid)
-            self.txtParola.text = ""
-            self.txtKullaniciAdi.text = ""
-            self.txtEmail.text = ""
+            
+            guard let kaydolanKullaniciID = sonuc?.user.uid else {return}
+            
+            let goruntuAdi = UUID().uuidString //rastgele bir sitring değer vericek
+            let ref = Storage.storage().reference(withPath: "/Profil Fotoğrafı/\(goruntuAdi)")
+            let goruntuData = self.btnFotografEkle.imageView?.image?.jpegData(compressionQuality: 0.8) ?? Data()
+            
+            ref.putData(goruntuData, metadata: nil, completion: { (_, hata) in
+                
+                if let hata = hata {
+                    print("Fotoğraf kaydedilemedi",hata)
+                    return
+                }
+                
+                print("görüntü başarıyla upload edildi.")
+                
+                ref.downloadURL(completion: { (url, hata) in
+                    if let hata = hata {
+                        print("Görüntünün Url adresi alınamadı ",hata)
+                        return
+                    }
+                    
+                    print("Upload edilen görüntünün Url addresi :\(url?.absoluteString ?? "Link yok")")
+                    
+                    let eklenecekVeri = ["KullaniciAdi" : kullaniciAdi,
+                                         "KullaniciID" : kaydolanKullaniciID,
+                                         "ProfilGoruntuURL" : url?.absoluteString ?? ""]
+                    
+                    
+                    Firestore.firestore().collection("Kullanıcılar").document(kaydolanKullaniciID).setData(eklenecekVeri, completion: { (hata) in
+                        if let hata = hata {
+                            print("Kullanıcı verileri firestore a kaydedilmedi",hata)
+                            return
+                        }
+                        
+                        print("Kullanıcı verileri başarıyla kaydedildi.")
+                        //kaydettikten sonra veriler boş gözüksün
+                        hud.dismiss(animated: true)
+                        self.gorunumuDuzelt()
+                        let storyBoard = UIStoryboard(name: "Main", bundle: nil)
+                        let girisVC = storyBoard.instantiateViewController(withIdentifier: "girisVc")
+                        self.present(girisVC,animated: true,completion: nil)
+                        
+                        
+                    })
+                })
+            })
+            
+            
+            
+          //  print("kullanici basarıyla gercekleşti",sonuc?.user.uid)
+         
         }
-        
-        
     }
     
+    fileprivate func gorunumuDuzelt(){
+        self.btnFotografEkle.setImage(#imageLiteral(resourceName: "fotograf_sec"), for: .normal)
+        self.txtParola.text = ""
+        self.txtKullaniciAdi.text = ""
+        self.txtEmail.text = ""
+        let basariliHud = JGProgressHUD(style: .light)
+        basariliHud.textLabel.text = "Kayıt Başarılı"
+        basariliHud.show(in: self.view)
+        basariliHud.dismiss(afterDelay: 2)
+    }
+    
+    let btnHesabimVar : UIButton = {
+        
+        let btn = UIButton(type: .system)
+        let attrBaslik = NSMutableAttributedString(string: "Bir hesabınız var mı?", attributes: [.font : UIFont.systemFont(ofSize: 15),
+            .foregroundColor : UIColor.lightGray])
+        attrBaslik.append(NSAttributedString(string: " Oturum Aç.", attributes: [
+            .font : UIFont.systemFont(ofSize: 15),
+            .foregroundColor : UIColor.rgbDonustur(red: 20, green: 155, blue: 135)]))
+        btn.setAttributedTitle(attrBaslik, for: .normal)
+        btn.addTarget(self, action: #selector(btnHesabimVarPressed), for: .touchUpInside)
+        return btn
+    }()
+    
+    @objc fileprivate func btnHesabimVarPressed(){
+        
+        let storyBoard = UIStoryboard(name: "Main", bundle: nil)
+        let girisVC = storyBoard.instantiateViewController(withIdentifier: "girisVc")
+        self.present(girisVC,animated: true,completion: nil)
+        
+    }
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        view.addSubview(imageView)
+        imageView.anchor(top: view.topAnchor, bottom: view.bottomAnchor, leading: view.leadingAnchor, trailing: view.trailingAnchor, paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0, width: 0, height: 0)
+        view.addSubview(btnHesabimVar)
+        btnHesabimVar.anchor(top: nil, bottom: view.safeAreaLayoutGuide.bottomAnchor, leading: view.leadingAnchor, trailing: view.trailingAnchor, paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0, width: 0, height: 60)
         view.addSubview(btnFotografEkle)
         
         btnFotografEkle.anchor(top: view.safeAreaLayoutGuide.topAnchor, bottom: nil, leading: nil, trailing: nil, paddingTop: 40, paddingBottom: 0, paddingLeft: 0, paddingRight: 0, width: 150, height: 150)
@@ -178,4 +273,23 @@ extension UIView {
     
 }
 
+extension KayitOlController : UIImagePickerControllerDelegate , UINavigationControllerDelegate {
+    
+    //didcancel
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true, completion: nil)
+    }
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        
+        let imgSecilen = info[.originalImage] as? UIImage
+        self.btnFotografEkle.setImage(imgSecilen?.withRenderingMode(.alwaysOriginal), for: .normal)
+        btnFotografEkle.layer.cornerRadius = btnFotografEkle.frame.width / 2
+        btnFotografEkle.layer.masksToBounds = true
+        btnFotografEkle.layer.borderColor = UIColor.darkGray.cgColor
+        btnFotografEkle.layer.borderWidth = 3
+        dismiss(animated: true, completion: nil)
+    }
+    
+}
 

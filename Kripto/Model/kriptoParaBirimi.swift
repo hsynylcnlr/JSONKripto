@@ -7,3 +7,7 @@
 //
 
 import Foundation
+struct kriptoParaBirimi : Decodable {
+    let currency : String
+    let price : String
+}

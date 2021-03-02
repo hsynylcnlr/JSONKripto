@@ -12,6 +12,8 @@ class KriptoTableViewCell: UITableViewCell {
 
     @IBOutlet weak var priceText: UILabel!
     @IBOutlet weak var currencyText: UILabel!
+    @IBOutlet weak var btnFavori: UIButton!
+    
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -24,4 +26,8 @@ class KriptoTableViewCell: UITableViewCell {
         
     }
 
+    @IBAction func favoriButton(_ sender: Any) {
+        print("datcom")
+        
+    }
 }
