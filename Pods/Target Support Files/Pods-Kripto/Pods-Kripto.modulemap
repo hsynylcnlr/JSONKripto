@@ -1,0 +1,6 @@
+framework module Pods_Kripto {
+  umbrella header "Pods-Kripto-umbrella.h"
+
+  export *
+  module * { export * }
+}
